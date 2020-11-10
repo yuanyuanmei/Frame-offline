@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ljcx.platform.dao.UavInfoDao">
+
+	<!-- 可根据自己的需求，是否要使用 -->
+    <resultMap id="BaseMap" type="com.ljcx.platform.vo.UavInfoVo">
+        <result column="uav_id" property="id" />
+    </resultMap>
+
+    <sql id="BaseColumns">
+        id uav_id  ,`no`,`model`,`name`  ,create_user   ,create_time , is_delete
+    </sql>
+
+    <select id="pageList" resultMap="BaseMap" >
+        select a.id uav_id,a.no,a.model,a.name,GROUP_CONCAT(DISTINCT c.name) team_name,a.create_time
+        from ljcx_uav_info a
+        left join ljcx_team_relationship b on a.id = b.m_id and b.m_type = 1
+        left join ljcx_team_info c on c.id = b.team_id
+        <where>
+            <if test="item.key != null and item.key != '' ">
+                and LOCATE(#{item.key},a.name) > 0
+            </if>
+            <if test="item.teamId != null and item.teamId > 0">
+                <if test="item.type == 'query'">
+                    and a.id in (select m_id from ljcx_team_relationship where team_id = #{item.teamId} and m_type = 1)
+                </if>
+                <if test="item.type == 'add'">
+                    and a.id not in (select m_id from ljcx_team_relationship where team_id = #{item.teamId} and m_type = 1)
+                </if>
+            </if>
+            and a.is_delete = 1
+        </where>
+        GROUP BY a.id
+    </select>
+
+    <select id="listByTeamId" resultMap="BaseMap" parameterType="java.lang.Long">
+        select  a.id uav_id  ,`no`,`model`,`name`  ,a.create_user   ,a.create_time,b.is_temp
+        from ljcx_uav_info a
+        left join ljcx_team_relationship b on a.id = b.m_id
+		where b.team_id = #{teamId} and b.m_type = 1 and b.is_delete = 1 and a.id = b.m_id and a.is_delete = 1
+    </select>
+
+    <select id="listByUserId" resultMap="BaseMap" parameterType="java.lang.Long">
+        select <include refid="BaseColumns"/>
+        from ljcx_uav_info a
+        <where>
+        and a.id in (select m_id from ljcx_team_relationship where m_type =1
+        and team_id in (select team_id from ljcx_team_relationship where m_type = 3 and m_id = #{userId}))
+        and a.is_delete = 1
+        </where>
+    </select>
+    <!--    删除临时设备 -->
+    <update id="updateTeamRelation">
+		update ljcx_team_relationship
+		set is_delete = 2
+		where team_id = #{teamId} and m_id = #{mId} and m_type = #{mType}
+    </update>
+
+    <select id="equipUavList" resultMap="BaseMap" parameterType="java.lang.Long">
+        select a.id uav_id,a.no,a.model,a.name,a.create_time
+        from ljcx_uav_info a
+        where a.is_delete = 1
+        and a.id not in (select m_id from ljcx_team_relationship where m_type = 1)
+    </select>
+
+
+
+</mapper>
